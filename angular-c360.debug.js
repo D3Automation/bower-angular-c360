@@ -1,7 +1,8 @@
 /**
  * angular-c360 - Angular components for working with data from Configurator 360
- * @version v0.3.0
- * Copyright 2016 D3 Automation.  All Rights Reserved.
+ * @version v0.3.1
+ * (c) 2016 D3 Automation  http://d3tech.net/solutions/automation/
+ * License: MIT
  */
 (function () {
     angular
