@@ -1,6 +1,6 @@
 /**
  * angular-c360 - Angular components for working with data from Configurator 360
- * @version v0.3.1
+ * @version v0.4.0
  * (c) 2016 D3 Automation  http://d3tech.net/solutions/automation/
  * License: MIT
  */
@@ -177,6 +177,7 @@ if (!String.prototype.startsWith) {
             var _invalidCharacterPattern = /[\s\%\/\?\)\(\.\']/g;
             var _manager = new breeze.EntityManager();
             var _viewer = null;
+            var _lastError = null;
             // TODO: Store viewer div id in constant?
             var _viewerDivId = 'c360Viewer';
 
@@ -194,6 +195,7 @@ if (!String.prototype.startsWith) {
                 getPartByRefChain: getPartByRefChain,
                 getPartByUiProp: getPartByUiProp,
                 updateProperty: updateProperty,
+                updateProperties: updateProperties,
                 resetProperty: resetProperty,
                 executeAction: executeAction,
                 endSession: endSession,
@@ -201,7 +203,8 @@ if (!String.prototype.startsWith) {
                 setDirty: setDirty,
                 isModelLoaded: isModelLoaded,
                 setModelAdapter: setModelAdapter,
-                getViewer: function () { return _viewer; }
+                getViewer: function () { return _viewer; },
+                getLastError: function () { return _lastError; }
             };
 
             return service;
@@ -264,6 +267,30 @@ if (!String.prototype.startsWith) {
                         }
                     ]
                 }, onSuccess, onError);
+
+                return deferred.promise;
+
+                function onSuccess(modelData) {
+                    updateModel(modelData);
+                    setDirty(true);
+                    deferred.resolve();
+                }
+
+                function onError(error) {
+                    $log.error('', 'Error updating property');
+                    handleError(error);
+                    deferred.reject();
+                }
+            }
+
+            function updateProperties(properties) {
+                _updateInProgress = true;
+
+                var deferred = $q.defer();
+
+                $rootScope.$broadcast('C360ModelUpdating', { promise: deferred.promise });
+
+                _viewer.setPropertyValues(properties, onSuccess, onError);
 
                 return deferred.promise;
 
@@ -418,6 +445,7 @@ if (!String.prototype.startsWith) {
                     if (result.compatible) {
                         C360.initViewer(viewerOptions);
                     } else {
+                        _lastError = result.reason;
                         deferred.reject(result.reason);
                     }
                 });
@@ -431,14 +459,17 @@ if (!String.prototype.startsWith) {
                     });
                 }
 
-                function failedToLoad(result) {
-                    deferred.reject(result);
+                function failedToLoad(viewer) {
+                    _viewer = viewer;
+                    deferred.reject(viewer.state);
                 }
 
                 return deferred.promise;
             }
 
             function updateModel(modelData) {
+                _lastError = null;
+
                 // Updated the entity manager with new/updated entities
                 mergePart(modelData, modelData.parentRefChain);
 
