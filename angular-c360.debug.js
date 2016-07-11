@@ -1,6 +1,6 @@
 /**
  * angular-c360 - Angular components for working with data from Configurator 360
- * @version v0.4.0
+ * @version v0.5.0
  * (c) 2016 D3 Automation  http://d3tech.net/solutions/automation/
  * License: MIT
  */
@@ -34,6 +34,211 @@ if (!String.prototype.startsWith) {
         return this.indexOf(searchString, position) === position;
     };
 }
+function UIProperty(c360Context, hostPart, adeskProp) {
+    this.c360Context = c360Context;
+    this.hostPart = hostPart;
+    this.adeskProp = adeskProp;
+    this.parseChoiceList();
+    this.parseTooltip();
+}
+Object.defineProperty(UIProperty.prototype, "category", {
+    get: function () {
+        return this.adeskProp.Category;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "choiceList", {
+    get: function () {
+        return this.choiceListData;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "choiceListDisplayMode", {
+    get: function () {
+        return this.adeskProp.ChoiceListDisplayMode;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "customData", {
+    get: function () {
+        return this.customDataValue;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "dataType", {
+    get: function () {
+        return this.dataTypeValue;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "errorInfo", {
+    get: function () {
+        return this.adeskProp.ErrorInfo;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "fullName", {
+    get: function () {
+        return this.adeskProp.FullName;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "inputType", {
+    get: function () {
+        if (this.dataType === 'Date') {
+            return 'date';
+        }
+        else if (this.dataType === 'Boolean') {
+            return 'checkbox';
+        }
+        else if (this.dataType === 'Integer' || this.dataType === 'Number') {
+            return 'number';
+        }
+        else {
+            return 'text';
+        }
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "invParamName", {
+    get: function () {
+        return this.adeskProp.InvParamName;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "isCheckbox", {
+    get: function () {
+        return (this.dataType === 'Boolean');
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "isLocked", {
+    get: function () {
+        return this.adeskProp.IsLocked;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "isModified", {
+    get: function () {
+        return this.adeskProp.IsModified;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "isReadOnly", {
+    get: function () {
+        return this.adeskProp.IsReadOnly;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "part", {
+    get: function () {
+        return this.hostPart;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "precision", {
+    get: function () {
+        return this.adeskProp.Precision;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "restrictToList", {
+    get: function () {
+        return this.adeskProp.RestrictToList;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "sequence", {
+    get: function () {
+        return this.adeskProp.Sequence;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "tooltip", {
+    get: function () {
+        return this.adeskProp.Tooltip;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "uiRuleName", {
+    get: function () {
+        return this.adeskProp.UiRuleName;
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "updateOn", {
+    get: function () {
+        if (this.isCheckbox || this.hasChoiceList) {
+            return 'default';
+        }
+        else {
+            return 'blur';
+        }
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "value", {
+    get: function () {
+        return this.adeskProp.Value;
+    },
+    set: function (newValue) {
+        this.adeskProp.Value = newValue;
+        this.c360Context.updateProperty(this.part.refChain, this.uiRuleName, newValue);
+    },
+    enumerable: true,
+    configurable: true
+});
+Object.defineProperty(UIProperty.prototype, "hasChoiceList", {
+    get: function () {
+        return this.choiceList && this.choiceList.length > 0;
+    },
+    enumerable: true,
+    configurable: true
+});
+UIProperty.prototype.reset = function () {
+    this.c360Context.resetProperty(this.part.refChain, this.uiRuleName);
+};
+UIProperty.prototype.parseChoiceList = function () {
+    if (this.adeskProp.ChoiceList) {
+        this.choiceListData = this.adeskProp.ChoiceList.map(function (choice) {
+            return { value: choice.DisplayString, text: choice.DisplayString };
+        });
+    }
+};
+UIProperty.prototype.parseTooltip = function () {
+    try {
+        var toolTipObject = JSON.parse(this.adeskProp.Tooltip);
+        this.toolTipValue = toolTipObject.ToolTip;
+        this.dataTypeValue = toolTipObject.DataType;
+        this.customDataValue = toolTipObject.CustomData;
+    }
+    catch (e) {
+        this.dataTypeValue = this.getDataTypeFromValue();
+    }
+};
+UIProperty.prototype.getDataTypeFromValue = function () {
+    return 'String';
+};
 (function () {
     'use strict';
 
@@ -57,10 +262,10 @@ if (!String.prototype.startsWith) {
 
             // Add all of these attributes unconditionally
             elem.addClass('c360-prop');
-            elem.attr('ng-model', prop + '.BoundValue');
-            elem.attr('ng-class', '{ \'c360-modified\': ' + prop + '.IsModified, \'c360-invalid\': ' + prop + '.ErrorInfo }');
-            elem.attr('ng-disabled', prop + '.IsReadOnly');
-            elem.attr('tooltip', '{{' + prop + '.Tooltip}}');
+            elem.attr('ng-model', prop + '.value');
+            elem.attr('ng-class', '{ \'c360-modified\': ' + prop + '.isModified, \'c360-invalid\': ' + prop + '.errorInfo }');
+            elem.attr('ng-disabled', prop + '.isReadOnly');
+            elem.attr('tooltip', '{{' + prop + '.tooltip}}');
             elem.attr('tooltip-popup-delay', '1000');
 
             // Add the remaining attributes only if they're not already set, so that they
@@ -75,7 +280,7 @@ if (!String.prototype.startsWith) {
             }
 
             if (elem[0].nodeName === 'SELECT' && !angular.isDefined(elem.attr('ng-options'))) {
-                elem.attr('ng-options', 'choice.value as choice.text for choice in ' + prop + '.ChoiceList');
+                elem.attr('ng-options', 'choice.value as choice.text for choice in ' + prop + '.choiceList');
             }
 
             return {
@@ -499,116 +704,61 @@ if (!String.prototype.startsWith) {
                 var isCompleteChangedPart = (angular.isDefined(part.isCompleteChangedPart) && part.isCompleteChangedPart === true);
 
                 initialValues = {
-                    RefChain: part.refChain,
-                    Name: part.Name,
-                    PartType: part.PartType,
-                    ParentRefChain: parentRefChain
+                    refChain: part.refChain,
+                    name: part.Name,
+                    partType: part.PartType,
+                    parentRefChain: parentRefChain
                 };
 
                 var mergedEntity = _manager.createEntity('UIPart', initialValues, breeze.EntityState.Unchanged,
                     breeze.MergeStrategy.OverwriteChanges);
 
-                if (!mergedEntity.UIProperties || isCompleteChangedPart) {
-                    mergedEntity.UIProperties = [];
+                // Remove functions on existing part that executed each action
+                if (mergedEntity.actions) {
+                    mergedEntity.actions.forEach(function(a) {
+                        delete mergedEntity[a.name];
+                    }); 
+                }                
+
+                // Remove properties that point to UIProperties
+                if (mergedEntity.uiProperties) {
+                    mergedEntity.uiProperties.forEach(function(p) {
+                        delete mergedEntity[p.fullName];
+                    }); 
+                }                
+
+                if (!mergedEntity.uiProperties || isCompleteChangedPart) {
+                    mergedEntity.uiProperties = [];
                 }
 
                 if (part.properties) {
                     part.properties.forEach(function (prop) {
                         // TODO - Optimize this so that the first time a part is added its properties aren't searched
                         if (!isCompleteChangedPart) {
-                            for (var i = 0, len = mergedEntity.UIProperties.length; i < len; i++) {
-                                if (mergedEntity.UIProperties[i].FullName === prop.value.FullName) {
-                                    mergedEntity.UIProperties.splice(i, 1);
+                            for (var i = 0, len = mergedEntity.uiProperties.length; i < len; i++) {
+                                if (mergedEntity.uiProperties[i].FullName === prop.value.FullName) {
+                                    mergedEntity.uiProperties.splice(i, 1);
                                     break;
                                 }
                             }
                         }
 
-                        mergedEntity.UIProperties.push(transformProp(prop));
+                        mergedEntity.uiProperties.push(new UIProperty(service, mergedEntity, prop.value));
                     });
                 }
 
-                mergedEntity.Messages = (part.Messages) ? part.Messages : [];
-                mergedEntity.Actions = (part.Actions) ? part.Actions : [];
-
-                function transformProp(prop) {
-                    var transformed = prop.value;
-
-                    try {
-                        var toolTipObject = JSON.parse(transformed.Tooltip);
-
-                        transformed.Tooltip = toolTipObject.ToolTip;
-                        transformed.DataType = toolTipObject.DataType;
-                        transformed.CustomData = toolTipObject.CustomData;
-                    } catch (e) {
-                        transformed.DataType = getDataTypeFromValue(transformed);
-                    }
-
-                    function getDataTypeFromValue(prop) {
-                        // TODO: Look at value to determine prop type
-                        return 'String';
-                    }
-
-                    Object.defineProperty(transformed, 'BoundValue', {
-                        get: function () {
-                            return transformed.Value;
-                        },
-                        set: function (newValue) {
-                            transformed.Value = newValue;
-                            updateProperty(part.refChain, prop.name, newValue)
-                        },
-                        enumerable: true,
-                        configurable: true
+                mergedEntity.messages = [];
+                if (part.Messages) {
+                    part.Messages.forEach(function(m)  {
+                        mergedEntity.messages.push({ messageText: m.MessageText, severity: m.Severity });
                     });
+                }
 
-                    Object.defineProperty(transformed, 'inputType', {
-                        enumerable: true,
-                        configurable: false,
-                        get: function () {
-                            if (transformed.DataType === 'Date') {
-                                return 'date';
-                            }
-                            else if (transformed.DataType === 'Boolean') {
-                                return 'checkbox';
-                            }
-                            else if (transformed.DataType === 'Integer' || transformed.DataType === 'Number') {
-                                return 'number';
-                            }
-                            else {
-                                return 'text';
-                            }
-                        }
+                mergedEntity.actions = [];
+                if (part.Actions) {
+                    part.Actions.forEach(function(a) {
+                        mergedEntity.actions.push({ name: a.Name, category: a.Category, menuText: a.MenuText, tooltip: a.tooltip });
                     });
-
-                    Object.defineProperty(transformed, 'isCheckbox', {
-                        enumerable: true,
-                        configurable: false,
-                        get: function () {
-                            return (transformed.DataType === 'Boolean');
-                        }
-                    });
-
-                    Object.defineProperty(transformed, 'hasChoiceList', {
-                        enumerable: true,
-                        configurable: false,
-                        get: function () {
-                            return (transformed.ChoiceList != null);
-                        }
-                    });
-
-                    Object.defineProperty(transformed, 'updateOn', {
-                        enumerable: true,
-                        configurable: false,
-                        get: function () {
-                            if (transformed.isCheckbox || transformed.hasChoiceList) {
-                                return 'default';
-                            }
-                            else
-                                return 'blur';
-                        }
-                    });
-
-                    return transformed;
                 }
 
                 if (part.children) {
@@ -621,50 +771,19 @@ if (!String.prototype.startsWith) {
             function processParts(parts) {
                 // First pass is to watch for root and add some shortcuts
                 parts.forEach(function (part) {
-                    if (part.RefChain === 'Root') {
+                    if (part.refChain === 'Root') {
                         _rootPart = part;
                     }
 
-                    var propSuffix = '_Prop';
-
-                    // Remove all existing UIProperty properties from the part
-                    Object.getOwnPropertyNames(part).forEach(function (propName) {
-                        if (propName.endsWith(propSuffix)) {
-                            var propNameNoSuffix = propName.replace(propSuffix, '');
-                            delete part[propNameNoSuffix];
-                            delete part[propName];
-                        }
-                    });
-
                     // Add properties for each UI Property and reset function on each UI Property
-                    part.UIProperties.forEach(function (uiProp) {
-                        var valuePropName = uiProp.FullName.replace(_invalidCharacterPattern, _modelAdapter.invalidCharacterReplacement);
-                        var prop = uiProp;
-
-                        // Add property that points to UI Property
-                        Object.defineProperty(part, valuePropName, {
-                            get: function () {
-                                return prop.BoundValue;
-                            },
-                            set: function (newValue) {
-                                prop.BoundValue = newValue;
-                            },
-                            enumerable: true,
-                            configurable: true
-                        });
-
-                        // Add reset function
-                        prop.reset = function () {
-                            resetProperty(part.RefChain, prop.UiRuleName);
-                        };
-
-                        var propPropName = valuePropName + propSuffix;
-                        part[propPropName] = uiProp;
+                    part.uiProperties.forEach(function (uiProp) {
+                        var propName = uiProp.fullName.replace(_invalidCharacterPattern, _modelAdapter.invalidCharacterReplacement);
+                        part[propName] = uiProp;
                     });
 
                     // Add properties as shortcuts to each child
-                    part.Children.forEach(function (uiChild) {
-                        var childName = uiChild.Name.replace(_invalidCharacterPattern, _modelAdapter.invalidCharacterReplacement);
+                    part.children.forEach(function (uiChild) {
+                        var childName = uiChild.name.replace(_invalidCharacterPattern, _modelAdapter.invalidCharacterReplacement);
                         var child = uiChild;
 
                         Object.defineProperty(part, childName, {
@@ -678,23 +797,23 @@ if (!String.prototype.startsWith) {
 
                     // Add shortcut to collection's children if applicable
                     if (_modelAdapter.isPartCollection(part)) {
-                        var collectionName = _modelAdapter.parseCollectionName(part.Name);
+                        var collectionName = _modelAdapter.parseCollectionName(part.name);
 
-                        Object.defineProperty(part.Parent, collectionName, {
+                        Object.defineProperty(part.parent, collectionName, {
                             get: function () {
-                                return part.Children;
+                                return part.children;
                             },
                             enumerable: true,
                             configurable: true
                         });
                     }
 
-                    if (part.Actions) {
-                        part.Actions.forEach(function (action) {
-                            part[action.Name] = function (params) {
+                    if (part.actions) {
+                        part.actions.forEach(function (action) {
+                            part[action.name] = function (params) {
                                 var actionData = {
-                                    refChain: part.RefChain,
-                                    name: action.Name,
+                                    refChain: part.refChain,
+                                    name: action.name,
                                     params: params
                                 };
 
@@ -762,7 +881,7 @@ if (!String.prototype.startsWith) {
         self.parseCollectionName = parseCollectionName;
 
         function isPartCollection(part) {
-            return part.Name.endsWith('Collection');
+            return part.name.endsWith('Collection');
         }
 
         function parseCollectionName(partName) {
@@ -797,17 +916,17 @@ if (!String.prototype.startsWith) {
                 shortName: 'UIPart',
                 namespace: 'C360',
                 dataProperties: {
-                    RefChain: {dataType: DT.String, isPartOfKey: true},
-                    Name: {dataType: DT.String},
-                    PartType: {dataType: DT.String},
-                    ParentRefChain: { dataType: DT.String }
+                    refChain: {dataType: DT.String, isPartOfKey: true},
+                    name: {dataType: DT.String},
+                    partType: {dataType: DT.String},
+                    parentRefChain: { dataType: DT.String }
                 },
                 navigationProperties: {
-                    Parent: {
+                    parent: {
                         entityTypeName: 'UIPart:#C360', isScalar: true,
-                        associationName: 'UIPart_UIPart', foreignKeyNames: ['ParentRefChain']
+                        associationName: 'UIPart_UIPart', foreignKeyNames: ['parentRefChain']
                     },
-                    Children: {
+                    children: {
                         entityTypeName: 'UIPart:#C360', isScalar: false,
                         associationName: 'UIPart_UIPart'
                     }
