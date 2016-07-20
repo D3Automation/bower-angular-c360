@@ -1,6 +1,6 @@
 /**
  * angular-c360 - Angular components for working with data from Configurator 360
- * @version v0.5.0
+ * @version v0.5.1
  * (c) 2016 D3 Automation  http://d3tech.net/solutions/automation/
  * License: MIT
  */
@@ -300,7 +300,7 @@ UIProperty.prototype.getDataTypeFromValue = function () {
     .module('angular-c360')
     .directive('c360Viewer', c360Viewer);
 
-    function c360Viewer($window, $timeout) {
+    function c360Viewer($window, $timeout, c360ViewerUtils) {
         var _viewerDivId = 'c360Viewer';
 
         return {
@@ -308,12 +308,24 @@ UIProperty.prototype.getDataTypeFromValue = function () {
             link: function (scope, element, attrs, ctrl) {
                 var viewerElement = angular.element('#' + _viewerDivId);
 
+                // Keep track of the component element in a service, so that we can use it in the IE11 $destroy hack below 
+                c360ViewerUtils.componentElement = element;
+
                 scope.$on('$destroy', function (args) {
                     $window.addEventListener('resize', null, false);
-                    viewerElement.offset({ top: 0, left: 0 });
-                    // Use z-index rather than visibility to hide/show, since the viewer apparently
-                    //  doesn't updated itself when hidden
-                    viewerElement.css('z-index', '-1');
+                    
+                    // In IE11, the timing the $destroy event is for some reason different than in other browsers.
+                    //  When navigating between two views that both use the viewer, the $destroy on the old view
+                    //  is happening after the viewer is created on the new view, so we need to make sure to only
+                    //  return the 
+                    if (c360ViewerUtils.componentElement === element) {
+                        viewerElement.offset({ top: 0, left: 0 });
+                        // Use z-index rather than visibility to hide/show, since the viewer apparently
+                        //  doesn't updated itself when hidden
+                        viewerElement.css('z-index', '-1');
+
+                        c360ViewerUtils.componentElement = undefined;
+                    }
                 });
 
                 $window.addEventListener('resize', positionViewer, false);
@@ -349,7 +361,7 @@ UIProperty.prototype.getDataTypeFromValue = function () {
             }
         };
     }
-    c360Viewer.$inject = ['$window', '$timeout'];
+    c360Viewer.$inject = ['$window', '$timeout', 'c360ViewerUtils'];
 })();
 (function () {
     'use strict';
@@ -933,5 +945,19 @@ UIProperty.prototype.getDataTypeFromValue = function () {
                 }
             });
         }
+    }
+})();
+(function() {
+    'use strict';
+
+    angular
+        .module('angular-c360')
+        .factory('c360ViewerUtils', c360ViewerUtils);
+
+    /* @ngInject */
+    function c360ViewerUtils() {
+        return {
+            componentElement: undefined
+        };
     }
 })();
