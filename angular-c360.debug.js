@@ -1,6 +1,6 @@
 /**
  * angular-c360 - Angular components for working with data from Configurator 360
- * @version v0.5.1
+ * @version v0.6.1
  * (c) 2016 D3 Automation  http://d3tech.net/solutions/automation/
  * License: MIT
  */
@@ -38,8 +38,8 @@ function UIProperty(c360Context, hostPart, adeskProp) {
     this.c360Context = c360Context;
     this.hostPart = hostPart;
     this.adeskProp = adeskProp;
-    this.parseChoiceList();
     this.parseTooltip();
+    this.parseChoiceList();
 }
 Object.defineProperty(UIProperty.prototype, "category", {
     get: function () {
@@ -92,13 +92,13 @@ Object.defineProperty(UIProperty.prototype, "fullName", {
 });
 Object.defineProperty(UIProperty.prototype, "inputType", {
     get: function () {
-        if (this.dataType === 'Date') {
+        if (this.dataType === 'date') {
             return 'date';
         }
-        else if (this.dataType === 'Boolean') {
+        else if (this.dataType === 'boolean') {
             return 'checkbox';
         }
-        else if (this.dataType === 'Integer' || this.dataType === 'Number') {
+        else if (this.dataType === 'integer' || this.dataType === 'number') {
             return 'number';
         }
         else {
@@ -117,7 +117,7 @@ Object.defineProperty(UIProperty.prototype, "invParamName", {
 });
 Object.defineProperty(UIProperty.prototype, "isCheckbox", {
     get: function () {
-        return (this.dataType === 'Boolean');
+        return (this.dataType === 'boolean');
     },
     enumerable: true,
     configurable: true
@@ -185,18 +185,6 @@ Object.defineProperty(UIProperty.prototype, "uiRuleName", {
     enumerable: true,
     configurable: true
 });
-Object.defineProperty(UIProperty.prototype, "updateOn", {
-    get: function () {
-        if (this.isCheckbox || this.hasChoiceList) {
-            return 'default';
-        }
-        else {
-            return 'blur';
-        }
-    },
-    enumerable: true,
-    configurable: true
-});
 Object.defineProperty(UIProperty.prototype, "value", {
     get: function () {
         return this.adeskProp.Value;
@@ -220,8 +208,13 @@ UIProperty.prototype.reset = function () {
 };
 UIProperty.prototype.parseChoiceList = function () {
     if (this.adeskProp.ChoiceList) {
+        var prop = this;
+
         this.choiceListData = this.adeskProp.ChoiceList.map(function (choice) {
-            return { value: choice.DisplayString, text: choice.DisplayString };
+            return { 
+                value: prop.convertChoiceListValue(choice.DisplayString),
+                text: choice.DisplayString
+            };
         });
     }
 };
@@ -229,7 +222,7 @@ UIProperty.prototype.parseTooltip = function () {
     try {
         var toolTipObject = JSON.parse(this.adeskProp.Tooltip);
         this.toolTipValue = toolTipObject.ToolTip;
-        this.dataTypeValue = toolTipObject.DataType;
+        this.dataTypeValue = toolTipObject.DataType.toLowerCase();
         this.customDataValue = toolTipObject.CustomData;
     }
     catch (e) {
@@ -237,8 +230,31 @@ UIProperty.prototype.parseTooltip = function () {
     }
 };
 UIProperty.prototype.getDataTypeFromValue = function () {
-    return 'String';
+    if (typeof(this.value) === 'number') {
+        return "number"
+    } else if (this.value instanceof Date) {
+        return "date"
+    } else if (typeof(this.value) === 'boolean') {
+        return "boolean"
+    } else {
+        return "string";
+    }
 };
+UIProperty.prototype.convertChoiceListValue = function (itemValue) {
+    switch (this.dataType) {
+        case "string":
+            return itemValue;
+        case "number":
+            return parseFloat(itemValue);
+        case "integer":
+            return parseInt(itemValue);
+        case "boolean":
+            return (itemValue === "True" || itemValue === "true");
+        default:
+            return itemValue;
+    }
+};
+
 (function () {
     'use strict';
 
@@ -246,52 +262,39 @@ UIProperty.prototype.getDataTypeFromValue = function () {
     .module('angular-c360')
     .directive('c360Prop', c360Prop);
 
-    function c360Prop($compile) {
+    /* @ngInject */
+    function c360Prop($compile, $injector) {
+        var templateUrl = 'c360Prop.html';
+
+        try {
+            templateUrl = $injector.get('c360PropTemplateUrl');
+        }
+        catch(err) {
+        }
+
         return {
-            compile: compile,
-            priority: 1000,
-            restrict: 'A',
-            terminal: true
-        };
+            restrict: 'E',
+            scope: {
+                uiProp: '=',
+                labelText: '@'
+            },
+            controller: ['$scope', function ($scope) {
+                setLabel();
 
-        function compile(elem, attrs) {
-            var prop = attrs.c360Prop;
+                $scope.$watch('uiProp', function (newValue, oldValue) {
+                    setLabel();
+                });
 
-            // Remove the attribute so it doesn't get processed again
-            elem.removeAttr('c360-prop');
-
-            // Add all of these attributes unconditionally
-            elem.addClass('c360-prop');
-            elem.attr('ng-model', prop + '.value');
-            elem.attr('ng-class', '{ \'c360-modified\': ' + prop + '.isModified, \'c360-invalid\': ' + prop + '.errorInfo }');
-            elem.attr('ng-disabled', prop + '.isReadOnly');
-            elem.attr('tooltip', '{{' + prop + '.tooltip}}');
-            elem.attr('tooltip-popup-delay', '1000');
-
-            // Add the remaining attributes only if they're not already set, so that they
-            //  can be overridden on a case-by-case basis
-
-            if (!angular.isDefined(elem.attr('ng-model-options'))) {
-                elem.attr('ng-model-options', '{ updateOn: ' + prop + '.updateOn }');
-            }
-
-            if (elem[0].nodeName === 'INPUT' && !angular.isDefined(elem.attr('type'))) {
-                elem.attr('type', '{{' + prop + '.inputType}}');
-            }
-
-            if (elem[0].nodeName === 'SELECT' && !angular.isDefined(elem.attr('ng-options'))) {
-                elem.attr('ng-options', 'choice.value as choice.text for choice in ' + prop + '.choiceList');
-            }
-
-            return {
-                pre: function preLink(scope, iElement, iAttrs, controller) { },
-                post: function postLink(scope, iElement, iAttrs, controller) {
-                    $compile(iElement)(scope);
+                function setLabel() {
+                    if ($scope.uiProp && !$scope.labelText) {
+                        $scope.labelText = $scope.uiProp.fullName;
+                    }
                 }
-            };
+            }],
+            templateUrl: templateUrl
         }
     }
-    c360Prop.$inject = ['$compile'];
+    c360Prop.$inject = ['$compile', '$injector'];
 })();
 (function () {
     'use strict';
@@ -306,7 +309,7 @@ UIProperty.prototype.getDataTypeFromValue = function () {
         return {
             restrict: 'E',
             link: function (scope, element, attrs, ctrl) {
-                var viewerElement = angular.element('#' + _viewerDivId);
+                var viewerElement = document.getElementById(_viewerDivId);
 
                 // Keep track of the component element in a service, so that we can use it in the IE11 $destroy hack below 
                 c360ViewerUtils.componentElement = element;
@@ -319,10 +322,11 @@ UIProperty.prototype.getDataTypeFromValue = function () {
                     //  is happening after the viewer is created on the new view, so we need to make sure to only
                     //  return the 
                     if (c360ViewerUtils.componentElement === element) {
-                        viewerElement.offset({ top: 0, left: 0 });
+                        viewerElement.style.top = "0";
+                        viewerElement.style.left = "0";
                         // Use z-index rather than visibility to hide/show, since the viewer apparently
                         //  doesn't updated itself when hidden
-                        viewerElement.css('z-index', '-1');
+                        viewerElement.style.zIndex = "-1";
 
                         c360ViewerUtils.componentElement = undefined;
                     }
@@ -336,27 +340,37 @@ UIProperty.prototype.getDataTypeFromValue = function () {
                 }, 100);
 
                 function positionViewer() {
+                    var widthPx = element[0].clientWidth + "px";
+                    var heightPx = element[0].clientHeight + "px";
+                    var offset = calculateOffset(element[0]);
+
                     // Use z-index rather than visibility to hide/show, since the viewer apparently
                     //  doesn't updated itself when hidden
-                    viewerElement.css('z-index', '1');
+                    viewerElement.style.zIndex = "1";
+                    viewerElement.style.top = offset.top + "px";
+                    viewerElement.style.left = offset.left + "px";
+                    viewerElement.style.width = widthPx;
+                    viewerElement.style.height = heightPx;
 
-                    viewerElement.offset(element.offset());
+                    var iFrame = viewerElement.firstElementChild;
+                    iFrame.style.width = widthPx;
+                    iFrame.style.height = heightPx;
 
-                    var width = element.width();
-                    var widthPx = width + 'px';
-                    var height = element.height();
-                    var heightPx = height + 'px';
+                    function calculateOffset(el) {
+                        var parent = el.offsetParent;
+                        var offset = {
+                            top: el.offsetTop,
+                            left: el.offsetLeft
+                        };
+                        
+                        while(parent !== null) {
+                            offset.top += parent.offsetTop;
+                            offset.left += parent.offsetLeft;
+                            parent = parent.offsetParent;
+                        }
 
-                    viewerElement.css('width', widthPx);
-                    viewerElement.css('height', heightPx);
-
-                    // Just setting the css would do it, but since c360 sets the width and height
-                    //  attributes on iframe, we'll set them here to in order to prevent any confusion
-                    var iFrame = angular.element(viewerElement.children()[0]);
-                    iFrame.css('width', widthPx);
-                    iFrame.width(width);
-                    iFrame.css('height', heightPx);
-                    iFrame.height(height);
+                        return offset;
+                    }
                 }
             }
         };
@@ -410,7 +424,6 @@ UIProperty.prototype.getDataTypeFromValue = function () {
                 getRoot: getRoot,
                 getParts: getParts,
                 getPartByRefChain: getPartByRefChain,
-                getPartByUiProp: getPartByUiProp,
                 updateProperty: updateProperty,
                 updateProperties: updateProperties,
                 resetProperty: resetProperty,
@@ -446,26 +459,6 @@ UIProperty.prototype.getDataTypeFromValue = function () {
 
             function getPartByRefChain(refChain) {
                 return _manager.getEntityByKey('UIPart', refChain);
-            }
-
-            function getPartByUiProp(partType, propName, propValue) {
-                var part = null;
-
-                // Use breeze to filter down to just parts of the correct type
-                var query = breeze.EntityQuery
-                    .from('UIParts')
-                    .toType('UIPart')
-                    .where('PartType', '==', partType);
-                var partsOfType = _manager.executeQueryLocally(query);
-
-                // Now filter to just the parts that match the UiProp
-                var matchingParts = partsOfType.filter(function (p) { return p[propName] === propValue; })
-
-                if (matchingParts.length > 0) {
-                    part = matchingParts[0];
-                }
-
-                return part;
             }
 
             function updateProperty(refChain, name, value) {
@@ -565,8 +558,10 @@ UIProperty.prototype.getDataTypeFromValue = function () {
 
                     if (actionResult.url) {
                         // Download output
-                        var iframe = angular.element("<iframe src='" + actionResult.url + "' style='display: none;' ></iframe>");
-                        angular.element("body").append(iframe);
+                        var iframe = document.createElement("iframe");
+                        iframe.setAttribute("src", actionResult.url);
+                        iframe.style.display = "none";
+                        document.body.appendChild(iframe);
 
                         $timeout(function() {
                             iframe.remove();    
@@ -636,11 +631,15 @@ UIProperty.prototype.getDataTypeFromValue = function () {
             function initializeViewer(modelBlob) {
                 clearModel();
 
-                var viewerElement = angular.element('#' + _viewerDivId);
-                if (viewerElement.length === 0) {
-                    var body = angular.element('body');
-                    viewerElement = angular.element('<div id="' + _viewerDivId + '"></div>').prependTo(body);
+                var viewerElement = document.getElementById(_viewerDivId);
+                if (!viewerElement) {
+                    viewerElement = document.createElement("div");
+                    viewerElement.setAttribute("id", _viewerDivId);
+                    
+                    document.body.insertBefore(viewerElement, document.body.firstChild);
                 }
+                viewerElement.style.position = "absolute";
+                viewerElement.style.zIndex = "-1";
 
                 var deferred = $q.defer();
 
@@ -748,7 +747,7 @@ UIProperty.prototype.getDataTypeFromValue = function () {
                         // TODO - Optimize this so that the first time a part is added its properties aren't searched
                         if (!isCompleteChangedPart) {
                             for (var i = 0, len = mergedEntity.uiProperties.length; i < len; i++) {
-                                if (mergedEntity.uiProperties[i].FullName === prop.value.FullName) {
+                                if (mergedEntity.uiProperties[i].fullName === prop.value.FullName) {
                                     mergedEntity.uiProperties.splice(i, 1);
                                     break;
                                 }
@@ -961,3 +960,4 @@ UIProperty.prototype.getDataTypeFromValue = function () {
         };
     }
 })();
+angular.module("angular-c360").run(["$templateCache", function($templateCache) {$templateCache.put("c360Prop.html","<div ng-if=\"uiProp\"><div ng-if=\"!uiProp.isCheckbox && uiProp.choiceList == null\"><label>{{labelText}}</label><input ng-model=\"uiProp.value\" ng-model-options=\"{ updateOn: \'blur\' }\" placeholder=\"{{uiProp.fullName}}\" ng-class=\"{ \'c360-modified\': uiProp.isModified, \'c360-invalid\': uiProp.errorInfo }\" ng-disabled=\"uiProp.isReadOnly\" type=\"{{uiProp.inputType}}\"></div><div ng-if=\"uiProp.choiceList != null\"><label>{{labelText}}</label><select ng-model=\"uiProp.value\" ng-options=\"choice.value as choice.text for choice in uiProp.choiceList\" ng-class=\"{ \'c360-modified\': uiProp.isModified, \'c360-invalid\': uiProp.errorInfo }\" ng-disabled=\"uiProp.isReadOnly\"></select></div><div ng-if=\"uiProp.isCheckbox\"><label><input ng-model=\"uiProp.value\" placeholder=\"uiProp.fullName\" ng-class=\"{ \'c360-modified\': uiProp.isModified, \'c360-invalid\': uiProp.errorInfo }\" ng-disabled=\"uiProp.isReadOnly\" type=\"checkbox\"> {{labelText}}</label></div></div>");}]);
